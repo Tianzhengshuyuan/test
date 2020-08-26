@@ -1,0 +1,59 @@
+#memcpy.S
+.section .text
+.globl  memcpy
+.type memcpy, @function
+memcpy:
+
+	push	%ebx
+	push	%esi
+	push	%edi
+	mov	16(%esp),		%eax			#dest
+	mov	20(%esp),		%ebx 			#src
+	mov	24(%esp),		%ecx			#n
+	mov	%ecx,			%edx
+	shr	$5,			%ecx	
+	mov	%ecx,			%esi			#商
+	shl	$5,			%ecx
+	sub	%ecx,			%edx			#除以32之后的余数(单独处理)
+	mov	$0,			%edi
+	cmp	$0,			%esi			#商为0表示不满32字节，直接进入cpyrest模式
+	je	restprepare
+	shl	$2,			%esi
+cpymost:
+	movq  	0(%ebx, %edi, 8), 	%xmm0			#一个循环要移动4个8字节的数据
+        movq  	8(%ebx, %edi, 8), 	%xmm1
+        movq  	16(%ebx, %edi, 8), 	%xmm2
+        movq  	24(%ebx, %edi, 8), 	%xmm3
+        movq  	%xmm0, 			0(%eax,%edi, 8)
+        movq  	%xmm1, 			8(%eax,%edi, 8)
+        movq  	%xmm2, 			16(%eax,%edi, 8)
+        movq  	%xmm3, 			24(%eax,%edi, 8)
+	add	$4,			%edi
+	cmp	%edi,			%esi
+	ja	cpymost
+	movb	$0,			0(%eax,%edi,8)		#字符串末尾加'\0'
+	add	%ecx,			%eax			#source和dest的地址暂时改变以方便处理
+	add	%ecx,			%ebx
+	mov	$0,			%edi
+	mov	%ecx,			%esi
+	cmp	$0,			%edx
+	jne	cpyrest
+	jmp	exit
+restprepare:
+	mov	$0,			%esi
+cpyrest:
+	movb	(%ebx,%edi),		%cl			#要移动的总字节数除以32之后余下的部分单独处理
+	movb	%cl,			(%eax,%edi)		#这一部分由于个数不固定，故采用每次移动一个字节的方式移动
+	inc	%edi
+	movb	$0,			(%eax,%edi)		
+	cmp	%edi,			%edx
+	ja	cpyrest
+	sub	%esi,			%eax
+exit:
+	pop	%edi
+	pop	%esi
+	pop	%ebx
+	ret
+	
+	
+		
